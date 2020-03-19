@@ -2,3 +2,4 @@
 **/*.rs.bk
 x*/.gitignore
 old/
+.idea/
