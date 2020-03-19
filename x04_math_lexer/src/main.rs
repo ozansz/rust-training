@@ -1,7 +1,7 @@
 mod lexer;
 
 fn main() {
-    let mut lex_machine = lexer::Lexer{lexemes: std::vec::Vec::new()};
+    let mut lex_machine = Lexer{lexemes: std::vec::Vec::new()};
     let mut input_string : String = String::new();
 
     println!("Enter expression: ");
