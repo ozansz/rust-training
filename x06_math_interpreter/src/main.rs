@@ -3,6 +3,8 @@ mod parser;
 use std::io::{self, Write};
 use std::panic;
 
+use colored::*;
+
 fn ast_visitor(root: &parser::ASTNode) -> f64 {
     match root.node {
         parser::Lexeme::Number(val) => val as f64,
@@ -56,7 +58,7 @@ fn main() {
 
         let mut input_string : String = String::new();
 
-        print!("\nIn [{}]: ", io_index);
+        print!("\n{} {}{}{}: ", "In".green(), "[".green(), io_index, "]".green());
         io::stdout().flush().unwrap();
     
         io::stdin().read_line(&mut input_string)
@@ -80,14 +82,14 @@ fn main() {
         match parser::Lexer::lex(input_string.as_str()) {
             Ok(val) => lexemes = val,
             Err(e) => {
-                println!("LexerError: {}", e);
+                println!("{}: {}", "LexerError".red(), e);
                 io_index += 1;
                 continue;
             }
         };
 
         if dump_lexemes {
-            println!("Out[{}]:", io_index);
+            println!("{}{}{}{}:", "Out".blue(), "[".blue(), io_index, "]".blue());
 
             for i in 0..lexemes.len() {
                 println!("  {}: {}", i, lexemes[i]);
@@ -102,20 +104,20 @@ fn main() {
         let ast = match _parser.parse() {
             Ok(val) => val,
             Err(e) => {
-                println!("ParserError: {}", e);
+                println!("{}: {}", "ParserError".red(), e);
                 io_index += 1;
                 continue;
             }
         };
 
         if dump_ast {
-            println!("Out[{}]: {}", io_index, ast);
+            println!("{}{}{}{}: {}", "Out".blue(), "[".blue(), io_index, "]".blue(), ast);
 
             io_index += 1;
             continue;
         }
     
-        println!("Out[{}]: {}", io_index, ast_visitor(&ast));
+        println!("{}{}{}{}: {}", "Out".blue(), "[".blue(), io_index, "]".blue(), ast_visitor(&ast));
         io_index += 1;
     }
 }
