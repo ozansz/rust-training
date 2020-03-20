@@ -112,13 +112,13 @@ impl fmt::Display for ASTNode {
         };
 
         match &(*self).left {
-            Some(val) => print!("{}", val),
-            None => print!("(), ")
+            Some(val) => print!("{}, ", val),
+            None => print!("_, ")
         };
 
-        match &(*self).left {
+        match &(*self).right {
             Some(val) => print!("{}", val),
-            None => print!("()")
+            None => print!("_")
         };
 
         write!(f, ")")
