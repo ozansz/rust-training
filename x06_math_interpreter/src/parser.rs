@@ -1,64 +1,39 @@
 use std::fmt;
+use std::vec;
 use std::boxed::Box;
 
-#[derive(Eq, PartialEq, Clone, Copy)]
-pub enum LexemeKind {
-    NUMBER,
-    PLUS,
-    MINUS,
-    MUL,
-    DIV,
-    LPAREN,
-    RPAREN,
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum Lexeme {
+    Number(i128),
+    Plus,
+    Minus,
+    Mul,
+    Div,
+    Lparen(u32),
+    Rparen(u32),
     Nil
-}
-
-impl fmt::Display for LexemeKind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let repr = match self {
-            LexemeKind::PLUS => String::from("PLUS"),
-            LexemeKind::MINUS => String::from("MINUS"),
-            LexemeKind::MUL => String::from("MUL"),
-            LexemeKind::DIV => String::from("DIV"),
-            LexemeKind::LPAREN => String::from("LPAREN"),
-            LexemeKind::RPAREN => String::from("RPAREN"),
-            LexemeKind::NUMBER => String::from("NUMBER"),
-            LexemeKind::Nil => String::from("<Nil>")
-        };
-
-        write!(f, "{}", repr.as_str())
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Lexeme {
-    pub integral_value: u64,
-    pub kind: LexemeKind
 }
 
 impl fmt::Display for Lexeme {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let repr = match self.kind {
-            LexemeKind::PLUS => String::from("PLUS"),
-            LexemeKind::MINUS => String::from("MINUS"),
-            LexemeKind::MUL => String::from("MUL"),
-            LexemeKind::DIV => String::from("DIV"),
-            LexemeKind::LPAREN => format!("LPAREN {{depth: {}}}", self.integral_value),
-            LexemeKind::RPAREN => format!("RPAREN {{depth: {}}}", self.integral_value),
-            LexemeKind::NUMBER => format!("NUMBER {{value: {}}}", self.integral_value),
-            LexemeKind::Nil => String::from("<Nil>")
-        };
-
-        write!(f, "{}", repr.as_str())
+        match self {
+            Lexeme::Number(val) => write!(f, "Number({})", val),
+            Lexeme::Plus => write!(f, "Plus(+)"),
+            Lexeme::Minus => write!(f, "Minus(-)"),
+            Lexeme::Mul => write!(f, "Mul(*)"),
+            Lexeme::Div => write!(f, "Div(/)"),
+            Lexeme::Lparen(level) => write!(f, "Lparen({})", level),
+            Lexeme::Rparen(level) => write!(f, "Rparen({})", level),
+            Lexeme::Nil => write!(f, "<Nil>",)
+        }
     }
 }
 
-pub struct Lexer {
-    pub lexemes: std::vec::Vec<Lexeme>
-}
+pub struct Lexer {}
 
 impl Lexer {
-    pub fn lex(&mut self, source: &str) -> Option<String> {
+    pub fn lex(source: &str) -> Result<Vec<Lexeme>, String> {
+        let mut lexemes = vec::Vec::new();
         let mut paren_depth = 0;
 
         for (char_index, ch) in source.chars().enumerate() {
@@ -67,175 +42,154 @@ impl Lexer {
             }
 
             if ch.is_digit(10) {
-                if self.lexemes.len() > 0 {
-                    let last_elem : Lexeme = match self.lexemes.pop() {
+                if lexemes.len() > 0 {
+                    let last_elem : Lexeme = match lexemes.pop() {
                         Some(val) => val,
                         _ => {
-                            return Some(String::from("Could not get the last value from lexeme vector."));
+                            return Err(String::from("Could not get the last value from lexeme vector."));
                         }
                     };
 
-                    if last_elem.kind == LexemeKind::NUMBER {
-                        self.lexemes.push(Lexeme{integral_value: last_elem.integral_value * 10 + match ch.to_digit(10) {
-                            Some(val) => val as u64,
+                    match last_elem {
+                        Lexeme::Number(val) => lexemes.push(Lexeme::Number(val * 10 + match ch.to_digit(10) {
+                            Some(val) => val as i128,
                             _ => {
-                                return Some(format!("Inconvertible digit(?): '{0}' at position {1}.", ch, char_index));
-                            }
-                        }, kind: LexemeKind::NUMBER});
-                    } else {
-                        self.lexemes.push(last_elem);
-                        self.lexemes.push(Lexeme{integral_value: match ch.to_digit(10) {
-                            Some(val) => val as u64,
-                            _ => {
-                                return Some(format!("Inconvertible digit(?): '{0}' at position {1}.", ch, char_index));
-                            }
-                        }, kind: LexemeKind::NUMBER});
+                                return Err(format!("Inconvertible digit(?): '{0}' at position {1}.", ch, char_index));
+                            }}
+                        )),
+                        _ => {
+                            lexemes.push(last_elem);
+                            lexemes.push(Lexeme::Number(match ch.to_digit(10) {
+                                Some(val) => val as i128,
+                                _ => {
+                                    return Err(format!("Inconvertible digit(?): '{0}' at position {1}.", ch, char_index));
+                                }
+                            }));
+                        }
                     }
                 } else {
-                    self.lexemes.push(Lexeme{integral_value: match ch.to_digit(10) {
-                        Some(val) => val as u64,
+                    lexemes.push(Lexeme::Number(match ch.to_digit(10) {
+                        Some(val) => val as i128,
                         _ => {
-                            return Some(format!("Inconvertible digit(?): '{0}' at position {1}.", ch, char_index));
+                            return Err(format!("Inconvertible digit(?): '{0}' at position {1}.", ch, char_index));
                         }
-                    }, kind: LexemeKind::NUMBER});
+                    }));
                 }
             } else if ch == '(' {
-                self.lexemes.push(Lexeme{integral_value: paren_depth, kind: LexemeKind::LPAREN});
+                lexemes.push(Lexeme::Lparen(paren_depth));
                 paren_depth += 1;
             } else if ch == ')' {
                 paren_depth -= 1;
-                self.lexemes.push(Lexeme{integral_value: paren_depth, kind: LexemeKind::RPAREN});
+                lexemes.push(Lexeme::Rparen(paren_depth));
             } else {
-                let lexeme_kind : LexemeKind;
-
                 match ch {
-                    '+' => lexeme_kind = LexemeKind::PLUS,
-                    '-' => lexeme_kind = LexemeKind::MINUS,
-                    '*' => lexeme_kind = LexemeKind::MUL,
-                    '/' => lexeme_kind = LexemeKind::DIV,
+                    '+' => lexemes.push(Lexeme::Plus),
+                    '-' => lexemes.push(Lexeme::Minus),
+                    '*' => lexemes.push(Lexeme::Mul),
+                    '/' => lexemes.push(Lexeme::Div),
                     _ => {
-                        return Some(format!("Unexpected char: '{0}' at position {1}.", ch, char_index));
+                        return Err(format!("Unexpected char: '{0}' at position {1}.", ch, char_index));
                     }
                 }
-
-                self.lexemes.push(Lexeme{integral_value: 0, kind: lexeme_kind});
             }
         }
 
-        return None;
+        return Ok(lexemes);
     }
-}
-
-impl fmt::Display for Lexer {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut result : String = String::from("");
-
-        for i in 0..self.lexemes.len() {
-            result = format!("{}\n{}", result, self.lexemes[i]);
-        }
-
-        write!(f, "{}", result)
-    }
-}
-
-#[derive(Eq, PartialEq)]
-pub enum ASTNodeKind {
-    NUMBER,
-    ADD,
-    SUB,
-    MUL,
-    DIV
 }
 
 pub struct ASTNode {
-    pub integral_value: i128,
-    pub kind: ASTNodeKind,
+    pub node: Lexeme,
     pub left: Option<Box<ASTNode>>,
     pub right: Option<Box<ASTNode>>
 }
 
 impl fmt::Display for ASTNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let result = match self.kind {
-            ASTNodeKind::NUMBER => format!("NUMBER {{value: {}}}", self.integral_value),
-            ASTNodeKind::ADD => String::from("BINOP(+)"),
-            ASTNodeKind::SUB => String::from("BINOP(-)"),
-            ASTNodeKind::MUL => String::from("BINOP(*)"),
-            ASTNodeKind::DIV => String::from("BINOP(/)"),
+        match write!(f, "{} (", self.node) {
+            Ok(_) => (),
+            Err(e) => return Err(e)
         };
 
-        write!(f, "{}", result.as_str())
+        match &(*self).left {
+            Some(val) => print!("{}", val),
+            None => print!("(), ")
+        };
+
+        match &(*self).left {
+            Some(val) => print!("{}", val),
+            None => print!("()")
+        };
+
+        write!(f, ")")
     }
 }
 
 pub struct Parser {
-    pub lexer: Lexer,
+    pub lexemes: Vec<Lexeme>,
     pub curr_lexeme: Lexeme,
     pub curr_index: usize
 }
 
-fn astnode_kind_from_lexeme_type(kind: LexemeKind) -> ASTNodeKind {
-    match kind {
-        LexemeKind::NUMBER => ASTNodeKind::NUMBER,
-        LexemeKind::PLUS => ASTNodeKind::ADD,
-        LexemeKind::MINUS => ASTNodeKind::SUB,
-        LexemeKind::MUL => ASTNodeKind::MUL,
-        LexemeKind::DIV => ASTNodeKind::DIV,
-        _ => {
-            panic!("Unexpected conversion from lexeme type: {}.", kind);
+impl Parser {
+    pub fn new(lexemes: Vec<Lexeme>) -> Parser {
+        Parser{
+            lexemes: lexemes,
+            curr_lexeme: Lexeme::Nil,
+            curr_index: 0
         }
     }
-}
 
-impl Parser {
     pub fn parse(&mut self) -> Result<ASTNode, String> {
         self.curr_index = 0;
-        self.lexer.lexemes.push(Lexeme{integral_value: 0, kind: LexemeKind::Nil});
+        self.lexemes.push(Lexeme::Nil);
 
-        self.curr_lexeme = self.lexer.lexemes[self.curr_index];
+        self.curr_lexeme = self.lexemes[self.curr_index];
 
         return self.expr();
     }
 
-    fn eat(&mut self, lexeme_kind: LexemeKind) -> Option<String> {
-        if self.curr_lexeme.kind == lexeme_kind {
+    fn eat(&mut self, lexeme: Lexeme) -> Option<String> {
+        if self.curr_lexeme == lexeme {
             self.curr_index += 1;
-            self.curr_lexeme = self.lexer.lexemes[self.curr_index];
+            self.curr_lexeme = self.lexemes[self.curr_index];
             None
         } else {
-            Some(format!("Got unexpected token type: {}", lexeme_kind))
+            Some(format!("Got unexpected token type: {}", lexeme))
         }
     }
 
     fn factor(&mut self) -> Result<ASTNode, String>  {
         let token = self.curr_lexeme;
 
-        if token.kind == LexemeKind::NUMBER {
-            match self.eat(LexemeKind::NUMBER) {
-                Some(e) => return Err(e),
-                None => ()
-            }
+        match token {
+            Lexeme::Number(val) => {
+                match self.eat(Lexeme::Number(val)) {
+                    Some(e) => return Err(e),
+                    None => ()
+                };
+    
+                Ok(ASTNode{node: Lexeme::Number(val), left: None, right: None})
+            },
+            Lexeme::Lparen(level) => {
+                match self.eat(Lexeme::Lparen(level)) {
+                    Some(e) => return Err(e),
+                    None => ()
+                }
+    
+                let node = match self.expr() {
+                    Ok(val) => val,
+                    Err(e) => return Err(e)
+                };
+    
+                match self.eat(Lexeme::Rparen(level)) {
+                    Some(e) => return Err(e),
+                    None => ()
+                };
 
-            return Ok(ASTNode{integral_value: token.integral_value as i128,
-                kind: ASTNodeKind::NUMBER, left: None, right: None});
-        } else if token.kind == LexemeKind::LPAREN {
-            match self.eat(LexemeKind::LPAREN) {
-                Some(e) => return Err(e),
-                None => ()
-            }
-
-            let node = match self.expr() {
-                Ok(val) => val,
-                Err(e) => return Err(e)
-            };
-
-            match self.eat(LexemeKind::RPAREN) {
-                Some(e) => return Err(e),
-                None => ()
-            }
-            return Ok(node);
-        } else {
-            Err(format!("Unexpected token: {}, was expecting NUMBER or LPAREN.", self.curr_lexeme))
+                Ok(node)
+            },
+            _ => Err(format!("Unexpected token: {}, was expecting NUMBER or LPAREN.", self.curr_lexeme))
         }
     }
 
@@ -245,34 +199,32 @@ impl Parser {
             Err(s) => return Err(s)
         };
 
-        while (self.curr_lexeme.kind == LexemeKind::MUL) || (self.curr_lexeme.kind == LexemeKind::DIV) {
+        loop {
             let token = self.curr_lexeme;
 
-            if token.kind == LexemeKind::MUL {
-                match self.eat(LexemeKind::MUL) {
+            match token {
+                Lexeme::Mul => match self.eat(Lexeme::Mul) {
                     Some(e) => return Err(e),
                     None => ()
-                }
-            }
-
-            if token.kind == LexemeKind::DIV {
-                match self.eat(LexemeKind::DIV) {
+                },
+                Lexeme::Div => match self.eat(Lexeme::Div) {
                     Some(e) => return Err(e),
                     None => ()
-                }
+                },
+                _ => break
             }
 
             node = ASTNode{
-                integral_value: 0,
-                kind: astnode_kind_from_lexeme_type(token.kind),
-                left: Some(Box::new(node)), right: Some(Box::new(match self.factor() {
+                node: token.clone(),
+                left: Some(Box::new(node)),
+                right: Some(Box::new(match self.factor() {
                     Ok(val) => val,
                     Err(s) => return Err(s)
                 }))
             };
         }
 
-        return Ok(node);
+        Ok(node)
     }
 
     fn expr(&mut self) -> Result<ASTNode, String> {
@@ -281,33 +233,31 @@ impl Parser {
             Err(s) => return Err(s)
         };
 
-        while (self.curr_lexeme.kind == LexemeKind::PLUS) || (self.curr_lexeme.kind == LexemeKind::MINUS) {
+        loop {
             let token = self.curr_lexeme;
 
-            if token.kind == LexemeKind::PLUS {
-                match self.eat(LexemeKind::PLUS) {
+            match token {
+                Lexeme::Plus => match self.eat(Lexeme::Plus) {
                     Some(e) => return Err(e),
                     None => ()
-                }
-            }
-
-            if token.kind == LexemeKind::MINUS {
-                match self.eat(LexemeKind::MINUS) {
+                },
+                Lexeme::Minus => match self.eat(Lexeme::Minus) {
                     Some(e) => return Err(e),
                     None => ()
-                }
+                },
+                _ => break
             }
 
             node = ASTNode{
-                integral_value: 0,
-                kind: astnode_kind_from_lexeme_type(token.kind),
-                left: Some(Box::new(node)), right: Some(Box::new(match self.term() {
+                node: token.clone(),
+                left: Some(Box::new(node)),
+                right: Some(Box::new(match self.term() {
                     Ok(val) => val,
-                    Err(e) => return Err(e)
+                    Err(s) => return Err(s)
                 }))
             };
         }
 
-        return Ok(node);
+        Ok(node)
     }
 }

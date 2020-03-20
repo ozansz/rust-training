@@ -4,26 +4,37 @@ use std::io::{self, Write};
 use std::panic;
 
 fn ast_visitor(root: &parser::ASTNode) -> f64 {
-    if root.kind == parser::ASTNodeKind::NUMBER {
-        root.integral_value as f64
-    } else {
-        let lhs = match &(*root).left {
+    match root.node {
+        parser::Lexeme::Number(val) => val as f64,
+        parser::Lexeme::Plus => ast_visitor(match &(*root).left {
             Some(expr) => expr,
             None => panic!("Empty lhs on binary operator: {}", *root),
-        };
-
-        let rhs = match &(*root).right {
+        }) + ast_visitor(match &(*root).right {
             Some(expr) => expr,
             None => panic!("Empty rhs on binary operator: {}", *root),
-        };
-
-        match &root.kind {
-            parser::ASTNodeKind::ADD => ast_visitor(&*lhs) + ast_visitor(&*rhs),
-            parser::ASTNodeKind::SUB => ast_visitor(&*lhs) - ast_visitor(&*rhs),
-            parser::ASTNodeKind::MUL => ast_visitor(&*lhs) * ast_visitor(&*rhs),
-            parser::ASTNodeKind::DIV => ast_visitor(&*lhs) / ast_visitor(&*rhs),
-            _ => panic!("Illegal code location!")
-        }
+        }),
+        parser::Lexeme::Minus => ast_visitor(match &(*root).left {
+            Some(expr) => expr,
+            None => panic!("Empty lhs on binary operator: {}", *root),
+        }) - ast_visitor(match &(*root).right {
+            Some(expr) => expr,
+            None => panic!("Empty rhs on binary operator: {}", *root),
+        }),
+        parser::Lexeme::Mul => ast_visitor(match &(*root).left {
+            Some(expr) => expr,
+            None => panic!("Empty lhs on binary operator: {}", *root),
+        }) * ast_visitor(match &(*root).right {
+            Some(expr) => expr,
+            None => panic!("Empty rhs on binary operator: {}", *root),
+        }),
+        parser::Lexeme::Div => ast_visitor(match &(*root).left {
+            Some(expr) => expr,
+            None => panic!("Empty lhs on binary operator: {}", *root),
+        }) / ast_visitor(match &(*root).right {
+            Some(expr) => expr,
+            None => panic!("Empty rhs on binary operator: {}", *root),
+        }),
+        _ => panic!("Illegal code location!")
     }
 }
 
@@ -39,7 +50,6 @@ fn main() {
 
     loop {
         let mut input_string : String = String::new();
-        let mut lex_machine = parser::Lexer{lexemes: std::vec::Vec::new()};
 
         print!("\nIn [{}]: ", io_index);
         io::stdout().flush().unwrap();
@@ -50,26 +60,21 @@ fn main() {
         if input_string.contains("exit") {
             break;
         }
-    
-        match lex_machine.lex(input_string.as_str()) {
-            Some(e) => {
+
+        let lexemes;
+
+        match parser::Lexer::lex(input_string.as_str()) {
+            Ok(val) => lexemes = val,
+            Err(e) => {
                 println!("LexerError: {}", e);
                 io_index += 1;
                 continue;
-            },
-            None => ()
-        }
-    
-        let mut parser = parser::Parser{
-            lexer: lex_machine,
-            curr_lexeme: parser::Lexeme{
-                integral_value: 0,
-                kind: parser::LexemeKind::Nil
-            },
-            curr_index: 0
+            }
         };
+    
+        let mut _parser = parser::Parser::new(lexemes);
 
-        let ast = match parser.parse() {
+        let ast = match _parser.parse() {
             Ok(val) => val,
             Err(e) => {
                 println!("ParserError: {}", e);
